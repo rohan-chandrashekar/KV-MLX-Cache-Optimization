@@ -10,7 +10,7 @@ must be run on an Apple Silicon Mac (macOS 14+, Python 3.10+) to produce real nu
 ## Phase checklist
 - [~] Phase 0 — Baseline long-context loop + KV-memory and quality telemetry (code done; numbers TBD pending Apple Silicon)
 - [~] Phase 1 — KV-cache quantization (INT8 / INT4) (code done; numbers TBD pending Apple Silicon)
-- [ ] Phase 2 — Heuristic eviction (recency + attention-sink + heavy-hitter)
+- [~] Phase 2 — Heuristic eviction (recency + attention-sink + heavy-hitter) (code done; numbers TBD pending Apple Silicon)
 - [ ] Phase 3 — Learned (contextual-bandit) eviction, benchmarked vs heuristics
 - [ ] Phase 4 — Stress benchmark to 16k+ and master comparative table
 - [ ] Phase 5 — Docs, resume bullets, memory-vs-context chart
@@ -36,6 +36,14 @@ must be run on an Apple Silicon Mac (macOS 14+, Python 3.10+) to produce real nu
 - `scripts/quantize.py` — Phase 1 entrypoint.
 - Design note: perplexity quantizes from token 0 (most aggressive, cleanest delta); generation uses `generate_step` with `quantized_kv_start=0` (prefill fp16, decode quantized) — both legitimate, noted for the interview.
 
+## What Phase 2 built
+- `longcache/model_runtime.py::rotating_cache` — per-layer `RotatingKVCache(max_size, keep)`; `keep=0` = recency window, `keep=sink` = StreamingLLM.
+- `longcache/heavy_hitter.py` — H2O: `HeavyHitterCache` (sink + recent + highest-attention, fixed budget), a scope-patched explicit-softmax `scaled_dot_product_attention` that captures per-key attention mass (the fused kernel never exposes weights), and `HeavyHitterRunner` (token-by-token prefill/decode + perplexity). Verified against upstream: model calls the attention helper as a bare module name (patchable), RoPE applied before `update_and_fetch` (survivors keep absolute positions), `create_attention_mask` returns None at N==1 (token-wise steps need no mask).
+- `longcache/eviction_benchmark.py` + `scripts/evict.py` — compares full / recency / streaming / heavy_hitter at 16k on KV mem, KV-vs-full ratio, peak mem, perplexity + Δ, needle acc, decode tok/s, TTFT.
+- `longcache/needle.py` — `run_needle_suite` now takes a `cache_factory` so each needle depth gets a fresh strategy cache.
+- Validation done here: eviction index math checked in pure Python (sink + recent always retained, middle keeps top-score heavy hitters, temporal order preserved, size capped at budget).
+- Known cost: H2O prefill is un-fused and token-by-token (TTFT will be high) — the honest price of scoring attention the fused kernel hides; recency/streaming use the fast fused path. H2O TTFT is reported, not hidden.
+
 ## Verified on this host
 - All modules compile (`python3 -m py_compile`).
 - `scripts/baseline.py` exits 2 on this Intel Mac with the correct hardware/Python diagnosis.
@@ -49,7 +57,10 @@ must be run on an Apple Silicon Mac (macOS 14+, Python 3.10+) to produce real nu
 
 ## Next action
 On an Apple Silicon Mac: `pip install -r requirements.txt`, `python scripts/get_data.py`,
-then `python scripts/baseline.py` (Phase 0) and `python scripts/quantize.py` (Phase 1).
-Paste the printed tables back; I fill README / RESUME_BULLETS / this file with the real
-numbers (baseline + OOM ceiling + FP16/INT8/INT4 deltas), then proceed to Phase 2
-(heuristic eviction: recency window, attention-sink + recent, heavy-hitter).
+then `python scripts/baseline.py` (Phase 0), `python scripts/quantize.py` (Phase 1), and
+`python scripts/evict.py` (Phase 2). Note: Phase 2's H2O strategy prefills token-by-token,
+so `evict.py` is slow at 16k (many un-fused forward passes) — expect minutes; lower
+`eviction_context` in config.py for a faster smoke run. Paste the printed tables back; I fill
+README / RESUME_BULLETS / this file with the real numbers (baseline + OOM ceiling +
+FP16/INT8/INT4 deltas + eviction comparison), then proceed to Phase 3 (learned
+contextual-bandit eviction, benchmarked vs the heuristics).

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 import mlx.core as mx
 from mlx.utils import tree_flatten
 from mlx_lm import load
-from mlx_lm.models.cache import make_prompt_cache
+from mlx_lm.models.cache import RotatingKVCache, make_prompt_cache
 
 from .telemetry import BYTES_PER_GB
 
@@ -112,6 +112,12 @@ class ModelRuntime:
 
     def new_cache(self, max_kv_size=None):
         return make_prompt_cache(self.model, max_kv_size=max_kv_size)
+
+    def rotating_cache(self, max_size, keep):
+        return [
+            RotatingKVCache(max_size=max_size, keep=keep)
+            for _ in range(self.dims.num_layers)
+        ]
 
     def quantized_cache(self, kv_bits, group_size=64):
         cache = make_prompt_cache(self.model)

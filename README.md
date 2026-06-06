@@ -60,14 +60,36 @@ row is 16k context; `scripts/quantize.py` emits the full 2k/4k/8k/16k sweep.
 Status as Phase 0: code complete, API-verified, compiles; numbers TBD pending an Apple
 Silicon run (this build host is an Intel Mac that cannot run MLX).
 
-### Eviction (Phases 2–3)
+### Heuristic eviction (Phase 2)
 
-| Strategy | Memory @16k (GB) | Perplexity Δ | Needle acc. | Tokens/sec |
-|---|---|---|---|---|
-| Recency window | _tbd_ | _tbd_ | _tbd_ | _tbd_ |
-| Sink + heavy-hitter | _tbd_ | _tbd_ | _tbd_ | _tbd_ |
-| Learned (bandit) | _tbd_ | _tbd_ | _tbd_ | _tbd_ |
-| **Verdict: does the learned policy justify its cost vs the heuristic?** | _tbd_ | | | |
+Three budget-limited strategies keep the same number of tokens (default budget 2048 at 16k
+context, an 8x cut) and are scored against the full keep-everything cache:
+
+- **recency** — `RotatingKVCache(keep=0)`, a pure sliding window.
+- **streaming** — `RotatingKVCache(keep=sink)`, StreamingLLM: attention sinks + recent window.
+- **heavy_hitter** — H2O: attention sinks + recent window + the highest-attention tokens.
+
+Recency and StreamingLLM ride mlx-lm's fused attention. H2O needs per-token attention scores,
+which the fused kernel never exposes, so it runs through a scope-patched explicit-softmax
+attention that captures per-key mass, driven one token at a time (survivors keep absolute
+RoPE; single-query steps keep the score matrix tiny and the mask trivial). That token-wise
+prefill is H2O's honest runtime cost — its TTFT will be high, which the table reports rather
+than hides.
+
+| Strategy | KV mem (GB) | KV vs full | Peak mem (GB) | Perplexity | PPL Δ vs full | Needle acc. | Decode tok/s | TTFT (s) |
+|---|---|---|---|---|---|---|---|---|
+| full | TBD | 1.00x (ref) | TBD | TBD | 0.00 (ref) | TBD | TBD | TBD |
+| recency | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
+| streaming | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
+| heavy_hitter | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
+
+`scripts/evict.py` emits this table. Status as Phases 0–1: code complete, API-verified,
+compiles; eviction index math validated in pure Python; numbers TBD pending an Apple Silicon
+run (this build host is an Intel Mac that cannot run MLX).
+
+### Learned eviction (Phase 3)
+
+Not started — contextual-bandit policy benchmarked head-to-head against the Phase 2 heuristics.
 
 ## Architecture
 

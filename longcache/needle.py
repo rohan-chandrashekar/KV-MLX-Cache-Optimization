@@ -46,12 +46,23 @@ class NeedleHaystack:
         return secret in found
 
 
-def run_needle_suite(runner, haystack, target_tokens, depths, answer_tokens, kv_bits=None):
+def run_needle_suite(
+    runner,
+    haystack,
+    target_tokens,
+    depths,
+    answer_tokens,
+    kv_bits=None,
+    cache_factory=None,
+):
     records = []
     correct = 0
     for depth in depths:
         prompt_ids, secret = haystack.build(target_tokens, depth)
-        result = runner.run_text(prompt_ids, answer_tokens, kv_bits=kv_bits)
+        prompt_cache = cache_factory() if cache_factory is not None else None
+        result = runner.run_text(
+            prompt_ids, answer_tokens, prompt_cache=prompt_cache, kv_bits=kv_bits
+        )
         ok = NeedleHaystack.is_correct(result["text"], secret)
         correct += int(ok)
         records.append(

@@ -30,6 +30,12 @@ class BaselineConfig:
     kv_group_size: int = 64
     quant_chunk_size: int = 256
 
+    eviction_context: int = 16384
+    eviction_budget: int = 2048
+    streaming_sink: int = 4
+    heavy_sink: int = 4
+    heavy_recent: int = 1024
+
     memory_budget_fraction: float = 0.80
     oom_probe_step: int = 8192
     oom_probe_max: int = 131072
