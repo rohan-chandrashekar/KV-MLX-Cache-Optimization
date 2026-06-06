@@ -49,6 +49,23 @@ must be run on an Apple Silicon Mac (macOS 14+, Python 3.10+) to produce real nu
 - `scripts/baseline.py` exits 2 on this Intel Mac with the correct hardware/Python diagnosis.
 - mlx-lm API names checked against current upstream source (load, generate_step, make_prompt_cache, KVCache/QuantizedKVCache/RotatingKVCache, mx memory fns).
 
+## Correctness audit (Phases 0–2, before first hardware run)
+Traced every external mlx / mlx-lm call against upstream source to de-risk the first run on
+borrowed hardware:
+- Verified: `generate_step` accepts kv_bits/kv_group_size/quantized_kv_start (keyword-only) and
+  yields `(token, logprobs)`; sampler is called on log-probs (argmax still correct); memory API
+  `mx.get_peak_memory` / `mx.reset_peak_memory` / `mx.get_active_memory` are top-level;
+  `nn.losses.cross_entropy(logits, targets, reduction=...)` signature; tokenizer `eos_token_ids`
+  (set) with `eos_token_id` delegating to the HF tokenizer; `take/repeat/argsort/sort/`
+  `concatenate/where` + `.astype/.transpose/.sum` all exist.
+- BUG FOUND AND FIXED: `mx.softmax` does NOT accept `precise=` (would have crashed H2O capture
+  with TypeError). Now upcasts to float32 explicitly. Also dropped reliance on `mx.arange(dtype=)`
+  and `.swapaxes` (used `.transpose` + explicit `.astype`).
+- Added `scripts/smoke.py`: ~30s end-to-end test that runs every path (baseline, INT8/INT4,
+  recency/streaming/H2O, both perplexities, needle, and the H2O cache eviction/offset/score
+  mechanics with real MLX ops) and asserts finite, ordered results. Run it FIRST on new
+  hardware so any remaining integration issue fails in seconds, not mid-benchmark.
+
 ## Known issues / risks
 - **Cannot measure anything here** — needs Apple Silicon. This is the single blocker to filling every table.
 - `model.args` field names are introspected defensively; verify against the chosen model on first real run.

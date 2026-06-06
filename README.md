@@ -119,8 +119,16 @@ Requires an Apple Silicon Mac (M1/M2/M3/M4), macOS 14+, Python 3.10+.
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 python scripts/get_data.py    # downloads held-out text (gitignored)
+python scripts/smoke.py       # ~30s: exercises every code path, fails fast if anything is off
 python scripts/baseline.py    # Phase 0 baseline sweep + telemetry
+python scripts/quantize.py    # Phase 1 quantization sweep
+python scripts/evict.py       # Phase 2 eviction comparison (H2O is slow at 16k)
 ```
+
+Run `smoke.py` first on a new machine. It loads the model once and drives baseline,
+INT8/INT4 quantization, all three eviction strategies, both perplexity paths, the needle
+harness, and the H2O cache mechanics with tiny inputs — asserting finite, ordered results —
+so an API or shape mismatch surfaces in seconds instead of 20 minutes into a benchmark.
 
 Default model: `mlx-community/Llama-3.2-1B-Instruct-4bit` (4-bit, ~128k context window),
 chosen to fit a 16 GB machine with ample headroom so KV growth — not the weights — is the

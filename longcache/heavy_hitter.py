@@ -67,13 +67,10 @@ class HeavyHitterCache:
         middle = self.scores[mid_start:mid_end]
         order = mx.argsort(middle)
         keep_local = mx.sort(order[n_drop:])
-        keep_idx = mx.concatenate(
-            [
-                mx.arange(mid_start, dtype=mx.int32),
-                (keep_local + mid_start).astype(mx.int32),
-                mx.arange(mid_end, size, dtype=mx.int32),
-            ]
-        )
+        head = mx.arange(mid_start).astype(mx.int32)
+        kept = (keep_local + mid_start).astype(mx.int32)
+        tail = mx.arange(mid_end, size).astype(mx.int32)
+        keep_idx = mx.concatenate([head, kept, tail])
         self.keys = mx.take(self.keys, keep_idx, axis=2)
         self.values = mx.take(self.values, keep_idx, axis=2)
         self.scores = mx.take(self.scores, keep_idx, axis=0)
@@ -97,15 +94,15 @@ def _explicit_attention(queries, keys, values, cache, scale, mask, sinks=None):
         repeats = n_heads // n_kv
         keys = mx.repeat(keys, repeats, axis=1)
         values = mx.repeat(values, repeats, axis=1)
-    scores = (queries * scale) @ keys.swapaxes(-1, -2)
+    scores = (queries * scale) @ keys.transpose(0, 1, 3, 2)
     if mask is not None:
         if mask.dtype == mx.bool_:
-            scores = mx.where(mask, scores, mx.array(-mx.inf, scores.dtype))
+            scores = mx.where(mask, scores, -1e9)
         else:
             scores = scores + mask
-    weights = mx.softmax(scores, axis=-1, precise=True)
+    weights = mx.softmax(scores.astype(mx.float32), axis=-1).astype(values.dtype)
     if isinstance(cache, HeavyHitterCache):
-        cache.record_scores(weights.sum(axis=(0, 1, 2)))
+        cache.record_scores(weights.sum(axis=(0, 1, 2)).astype(mx.float32))
     return weights @ values
 
 
