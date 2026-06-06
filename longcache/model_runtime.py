@@ -112,3 +112,15 @@ class ModelRuntime:
 
     def new_cache(self, max_kv_size=None):
         return make_prompt_cache(self.model, max_kv_size=max_kv_size)
+
+    def quantized_cache(self, kv_bits, group_size=64):
+        cache = make_prompt_cache(self.model)
+        if kv_bits is None:
+            return cache
+        quantized = []
+        for layer in cache:
+            if hasattr(layer, "to_quantized"):
+                quantized.append(layer.to_quantized(group_size=group_size, bits=kv_bits))
+            else:
+                quantized.append(layer)
+        return quantized

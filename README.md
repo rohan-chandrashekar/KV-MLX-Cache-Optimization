@@ -44,11 +44,21 @@ measured peak stays under 80% of unified memory.
 
 ### KV quantization (Phase 1)
 
-| Precision | Memory @16k (GB) | Perplexity Δ | Needle acc. | Tokens/sec |
-|---|---|---|---|---|
-| FP16 (baseline) | _tbd_ | 0 | _tbd_ | _tbd_ |
-| INT8 | _tbd_ | _tbd_ | _tbd_ | _tbd_ |
-| INT4 | _tbd_ | _tbd_ | _tbd_ | _tbd_ |
+All tokens are kept; each costs less by storing cached K/V quantized (group size 64) via
+mlx-lm's `QuantizedKVCache`. KV memory is the **measured** compressed cache size
+(packed uint32 + per-group fp16 scales/biases), not an analytical estimate. Perplexity is
+computed by a teacher-forced forward pass that runs *through the quantized cache*, so the
+quality delta reflects real quantized-attention error, not an uncached approximation. Headline
+row is 16k context; `scripts/quantize.py` emits the full 2k/4k/8k/16k sweep.
+
+| Context | Precision | KV mem (GB) | KV vs FP16 | Peak mem (GB) | Perplexity | PPL Δ | Needle acc. | Decode tok/s |
+|---|---|---|---|---|---|---|---|---|
+| 16k | fp16 | TBD | 1.00x | TBD | TBD | 0.00 (ref) | TBD | TBD |
+| 16k | int8 | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
+| 16k | int4 | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
+
+Status as Phase 0: code complete, API-verified, compiles; numbers TBD pending an Apple
+Silicon run (this build host is an Intel Mac that cannot run MLX).
 
 ### Eviction (Phases 2–3)
 

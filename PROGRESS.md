@@ -9,7 +9,7 @@ must be run on an Apple Silicon Mac (macOS 14+, Python 3.10+) to produce real nu
 
 ## Phase checklist
 - [~] Phase 0 — Baseline long-context loop + KV-memory and quality telemetry (code done; numbers TBD pending Apple Silicon)
-- [ ] Phase 1 — KV-cache quantization (INT8 / INT4)
+- [~] Phase 1 — KV-cache quantization (INT8 / INT4) (code done; numbers TBD pending Apple Silicon)
 - [ ] Phase 2 — Heuristic eviction (recency + attention-sink + heavy-hitter)
 - [ ] Phase 3 — Learned (contextual-bandit) eviction, benchmarked vs heuristics
 - [ ] Phase 4 — Stress benchmark to 16k+ and master comparative table
@@ -28,6 +28,14 @@ must be run on an Apple Silicon Mac (macOS 14+, Python 3.10+) to produce real nu
 - `scripts/baseline.py` — Phase 0 entrypoint (preflight → fit report → sweep → table).
 - `scripts/get_data.py` — downloads public-domain held-out text (gitignored).
 
+## What Phase 1 built
+- `longcache/model_runtime.py::quantized_cache` — builds a from-empty `QuantizedKVCache` per layer via `to_quantized(group_size, bits)`.
+- `longcache/generation.py` — generation now takes `kv_bits`/`kv_group_size`/`quantized_kv_start`, passed to `generate_step`; the cache is quantized in place so measured KV bytes are the real compressed size.
+- `longcache/cached_perplexity.py` — teacher-forced perplexity through the live cache; with a quantized cache, attention routes through `quantized_scaled_dot_product_attention`, so the delta is the true quantized-attention quality cost (verified against upstream `models/base.py`).
+- `longcache/quantization_benchmark.py` — FP16/INT8/INT4 sweep across context lengths; emits before/after table (KV mem, KV-vs-FP16 ratio, peak mem, perplexity + Δ, needle acc, decode tok/s) + raw JSON.
+- `scripts/quantize.py` — Phase 1 entrypoint.
+- Design note: perplexity quantizes from token 0 (most aggressive, cleanest delta); generation uses `generate_step` with `quantized_kv_start=0` (prefill fp16, decode quantized) — both legitimate, noted for the interview.
+
 ## Verified on this host
 - All modules compile (`python3 -m py_compile`).
 - `scripts/baseline.py` exits 2 on this Intel Mac with the correct hardware/Python diagnosis.
@@ -41,5 +49,7 @@ must be run on an Apple Silicon Mac (macOS 14+, Python 3.10+) to produce real nu
 
 ## Next action
 On an Apple Silicon Mac: `pip install -r requirements.txt`, `python scripts/get_data.py`,
-`python scripts/baseline.py`. Paste the printed table back; I fill README / RESUME_BULLETS /
-this file with the real numbers and the OOM ceiling, then proceed to Phase 1 (KV quantization).
+then `python scripts/baseline.py` (Phase 0) and `python scripts/quantize.py` (Phase 1).
+Paste the printed tables back; I fill README / RESUME_BULLETS / this file with the real
+numbers (baseline + OOM ceiling + FP16/INT8/INT4 deltas), then proceed to Phase 2
+(heuristic eviction: recency window, attention-sink + recent, heavy-hitter).

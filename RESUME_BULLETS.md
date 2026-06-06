@@ -4,9 +4,9 @@ Interview-defensible bullets. Measured numbers only; nothing estimated. A bullet
 `TBD` until the number behind it has been measured on Apple Silicon.
 
 ## Status
-Phase 0 (baseline + telemetry) code complete and API-verified; awaiting a run on an
-Apple Silicon Mac to populate numbers. The build host is an Intel Mac, on which MLX cannot
-run, so no Phase 0 metric is measured yet.
+Phases 0–1 (baseline + telemetry, KV quantization) code complete and API-verified; awaiting
+a run on an Apple Silicon Mac to populate numbers. The build host is an Intel Mac, on which
+MLX cannot run, so no metric is measured yet.
 
 ## Draft bullets (numbers pending Apple Silicon run)
 - Built an on-device long-context LLM inference engine on Apple MLX that holds long
@@ -18,8 +18,10 @@ run, so no Phase 0 metric is measured yet.
   retrieval accuracy vs context length.
 - Established the baseline memory ceiling: identified the context length at which the KV cache
   pushes peak memory past the device budget (OOM ceiling) on a TBD-GB machine — TBD tokens.
-- [Phase 1+] Quantized the KV cache to INT8/INT4, cutting KV memory by TBD% at 16k context
-  for a TBD perplexity delta and TBD needle-accuracy change vs the FP16 baseline.
+- Quantized the KV cache to INT8/INT4 (mlx-lm `QuantizedKVCache`, group size 64), cutting
+  measured KV memory by TBDx at 16k context for a TBD perplexity delta and TBD needle-accuracy
+  change vs the FP16 baseline; measured quality through quantized attention, not an uncached
+  proxy, so the delta is honest.
 - [Phase 3] Trained a contextual-bandit eviction policy and benchmarked it head-to-head
   against StreamingLLM/H2O heuristics; verdict TBD with the supporting data.
 

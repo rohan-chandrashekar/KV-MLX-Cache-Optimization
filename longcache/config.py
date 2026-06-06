@@ -26,6 +26,10 @@ class BaselineConfig:
     )
     needle_answer_tokens: int = 16
 
+    kv_precisions: List = field(default_factory=lambda: ["fp16", 8, 4])
+    kv_group_size: int = 64
+    quant_chunk_size: int = 256
+
     memory_budget_fraction: float = 0.80
     oom_probe_step: int = 8192
     oom_probe_max: int = 131072

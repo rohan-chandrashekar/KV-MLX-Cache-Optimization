@@ -29,7 +29,16 @@ class GenerationRun:
         self.runtime = runtime
         self.memory = MemoryProbe()
 
-    def run(self, prompt_ids, max_tokens, prompt_cache=None, stop_on_eos=True):
+    def run(
+        self,
+        prompt_ids,
+        max_tokens,
+        prompt_cache=None,
+        stop_on_eos=True,
+        kv_bits=None,
+        kv_group_size=64,
+        quantized_kv_start=0,
+    ):
         model = self.runtime.model
         tokenizer = self.runtime.tokenizer
         eos = _eos_ids(tokenizer) if stop_on_eos else set()
@@ -50,6 +59,9 @@ class GenerationRun:
             max_tokens=max_tokens,
             sampler=argmax_sampler,
             prompt_cache=prompt_cache,
+            kv_bits=kv_bits,
+            kv_group_size=kv_group_size,
+            quantized_kv_start=quantized_kv_start,
         )
         for index, (token, _logprobs) in enumerate(stepper):
             mx.eval(token)
@@ -72,6 +84,7 @@ class GenerationRun:
         return {
             "prompt_tokens": prompt_len,
             "decoded_tokens": decoded,
+            "kv_bits": kv_bits,
             "ttft_s": ttft,
             "decode_tokens_per_s": decode_tps,
             "peak_memory_gb": self.memory.peak_gb(),
@@ -79,7 +92,7 @@ class GenerationRun:
             "token_ids": tokens,
         }
 
-    def run_text(self, prompt_ids, max_tokens, prompt_cache=None, stop_on_eos=True):
-        result = self.run(prompt_ids, max_tokens, prompt_cache, stop_on_eos)
+    def run_text(self, prompt_ids, max_tokens, **kwargs):
+        result = self.run(prompt_ids, max_tokens, **kwargs)
         result["text"] = self.runtime.tokenizer.decode(result["token_ids"])
         return result
