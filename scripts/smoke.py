@@ -25,6 +25,12 @@ from longcache.cached_perplexity import cached_perplexity
 from longcache.config import BaselineConfig
 from longcache.generation import GenerationRun
 from longcache.heavy_hitter import HeavyHitterCache, HeavyHitterRunner
+from longcache.learned_eviction import (
+    LearnedCache,
+    LearnedRunner,
+    collect_rollouts,
+    train_policy,
+)
 from longcache.model_runtime import ModelRuntime
 from longcache.needle import NeedleHaystack, run_needle_suite
 from longcache.perplexity import sliding_window_perplexity
@@ -150,6 +156,39 @@ def main():
     haystack = NeedleHaystack(filler, runtime.tokenizer, config.seed)
     checks.run("needle harness (full cache)", lambda: f"acc {run_needle_suite(runner, haystack, ctx, [0.5], 8)['accuracy']:.2f}")
     checks.run("needle harness (rotating cache_factory)", lambda: f"acc {run_needle_suite(runner, haystack, ctx, [0.5], 8, cache_factory=lambda: runtime.rotating_cache(budget, sink))['accuracy']:.2f}")
+
+    trained = {}
+
+    def rollout_and_train():
+        feats, targets = collect_rollouts(runtime, ids[:256], age=8, future=8)
+        _assert(feats.ndim == 2 and feats.shape[1] == 4, f"feature shape wrong: {feats.shape}")
+        _assert(feats.shape[0] >= 32, f"too few rollout rows: {feats.shape[0]}")
+        policy = train_policy(feats, targets, runtime, age=8, future=8)
+        trained["policy"] = policy
+        return f"{policy.rows} rows, train R² {policy.train_r2:.3f} vs past-only {policy.baseline_r2:.3f}"
+
+    checks.run("rollout collection + policy training", rollout_and_train)
+
+    def learned_cache_unit():
+        policy = trained["policy"]
+        cache = LearnedCache(policy, budget=8, sink=2, recent=3, layer_id=0)
+        shape = (1, runtime.dims.num_kv_heads, 1, runtime.dims.head_dim)
+        for _ in range(20):
+            cache.update_and_fetch(mx.random.normal(shape), mx.random.normal(shape))
+            cache.record_scores(mx.ones((cache.keys.shape[2],), dtype=mx.float32))
+        _assert(cache.keys.shape[2] == 8, f"not capped at budget: {cache.keys.shape[2]}")
+        _assert(cache.offset == 20, f"offset wrong: {cache.offset}")
+        _assert(cache.value_norms.shape[0] == 8 and cache.positions.shape[0] == 8, "aux arrays misaligned")
+        return "learned cache capped at budget=8, value_norms/positions aligned"
+
+    checks.run("learned cache mechanics (predict/evict/aux arrays)", learned_cache_unit)
+
+    def learned_runner():
+        learned = LearnedRunner(runtime, trained["policy"], budget, sink, recent)
+        _assert(len(learned.generate(prompt[:48], decode)["token_ids"]) > 0, "no tokens")
+        return f"ppl {_finite_ppl(learned.perplexity(ids[:48])):.2f}"
+
+    checks.run("learned runner (generate + perplexity)", learned_runner)
 
     print(f"\n{checks.passed} passed, {checks.failed} failed.")
     if checks.failed:

@@ -36,9 +36,14 @@ class BaselineConfig:
     heavy_sink: int = 4
     heavy_recent: int = 1024
 
+    rollout_context: int = 1024
+    bandit_age: int = 64
+    bandit_future: int = 64
+
     memory_budget_fraction: float = 0.80
     oom_probe_step: int = 8192
     oom_probe_max: int = 131072
 
     holdout_path: Path = REPO_ROOT / "data" / "holdout.txt"
     results_dir: Path = REPO_ROOT / "results-raw"
+    policy_path: Path = REPO_ROOT / "results-raw" / "phase3_policy.json"

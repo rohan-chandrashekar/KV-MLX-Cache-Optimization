@@ -101,7 +101,7 @@ def _explicit_attention(queries, keys, values, cache, scale, mask, sinks=None):
         else:
             scores = scores + mask
     weights = mx.softmax(scores.astype(mx.float32), axis=-1).astype(values.dtype)
-    if isinstance(cache, HeavyHitterCache):
+    if hasattr(cache, "record_scores"):
         cache.record_scores(weights.sum(axis=(0, 1, 2)).astype(mx.float32))
     return weights @ values
 
@@ -123,20 +123,20 @@ def capture_scores(model):
         module.scaled_dot_product_attention = original
 
 
-class HeavyHitterRunner:
-    def __init__(self, runtime, budget, sink, recent):
+class TokenStreamRunner:
+    """Token-by-token prefill/decode under attention capture, for any streaming-eviction cache.
+
+    Single-query steps keep create_attention_mask at None and bound the captured score matrix;
+    every eviction cache (H2O, learned) plugs in through the make_cache factory.
+    """
+
+    def __init__(self, runtime, make_cache):
         self.runtime = runtime
-        self.budget = budget
-        self.sink = sink
-        self.recent = recent
+        self._make_cache = make_cache
         self.memory = MemoryProbe()
 
     def fresh_cache(self):
-        num_layers = len(self.runtime.model.layers)
-        return [
-            HeavyHitterCache(self.budget, self.sink, self.recent)
-            for _ in range(num_layers)
-        ]
+        return self._make_cache()
 
     def _prefill(self, model, cache, prompt_ids):
         logits = None
@@ -206,3 +206,15 @@ class HeavyHitterRunner:
             "mean_nll": mean_nll,
             "tokens_scored": counted,
         }
+
+
+class HeavyHitterRunner(TokenStreamRunner):
+    def __init__(self, runtime, budget, sink, recent):
+        self.budget = budget
+        self.sink = sink
+        self.recent = recent
+        num_layers = len(runtime.model.layers)
+        super().__init__(
+            runtime,
+            lambda: [HeavyHitterCache(budget, sink, recent) for _ in range(num_layers)],
+        )

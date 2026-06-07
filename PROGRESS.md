@@ -11,7 +11,7 @@ must be run on an Apple Silicon Mac (macOS 14+, Python 3.10+) to produce real nu
 - [~] Phase 0 — Baseline long-context loop + KV-memory and quality telemetry (code done; numbers TBD pending Apple Silicon)
 - [~] Phase 1 — KV-cache quantization (INT8 / INT4) (code done; numbers TBD pending Apple Silicon)
 - [~] Phase 2 — Heuristic eviction (recency + attention-sink + heavy-hitter) (code done; numbers TBD pending Apple Silicon)
-- [ ] Phase 3 — Learned (contextual-bandit) eviction, benchmarked vs heuristics
+- [~] Phase 3 — Learned (contextual-bandit) eviction, benchmarked vs heuristics (code done; numbers TBD pending Apple Silicon)
 - [ ] Phase 4 — Stress benchmark to 16k+ and master comparative table
 - [ ] Phase 5 — Docs, resume bullets, memory-vs-context chart
 
@@ -44,6 +44,14 @@ must be run on an Apple Silicon Mac (macOS 14+, Python 3.10+) to produce real nu
 - Validation done here: eviction index math checked in pure Python (sink + recent always retained, middle keeps top-score heavy hitters, temporal order preserved, size capped at budget).
 - Known cost: H2O prefill is un-fused and token-by-token (TTFT will be high) — the honest price of scoring attention the fused kernel hides; recency/streaming use the fast fused path. H2O TTFT is reported, not hidden.
 
+## What Phase 3 built
+- `longcache/heavy_hitter.py` — refactored the H2O runner into a generic `TokenStreamRunner` (cache-factory based); attention capture now duck-types on `record_scores` so any eviction cache can receive scores. `HeavyHitterRunner` keeps its signature (eviction_benchmark unchanged).
+- `longcache/learned_eviction.py` — the contextual bandit: `RolloutCache` + `RolloutCollector` (one token-by-token pass over a full cache under capture; labels each token with future attention over a window), `collect_rollouts`, `train_policy` (sklearn `StandardScaler` + `Ridge`, plus a past-attention-only baseline R² so we can see if the extra features add signal), `LinearPolicy` (JSON-serializable), `LearnedCache` (H2O-style budget eviction but the eviction score is the learned linear prediction from `[avg attention, position fraction, value norm, layer]`, scored with cheap mx ops), and `LearnedRunner`.
+- `longcache/eviction_benchmark.py` — `_measure_token_stream` generalized; `run(learned_policy=...)` appends the learned row.
+- `longcache/learned_benchmark.py` + `scripts/learn.py` — collect → train → benchmark all 5 strategies → markdown table + explicit verdict (compares learned vs H2O on perplexity/needle/decode-speed and reports the reward-model R² lift).
+- Validation done here (numpy, no MLX): rollout past/future windowing matches an independent brute-force reference; constant-attention sanity gives avg_attention == label == c. **Off-by-one fixed**: `past` spans `age+1` contributing queries (token attends to itself at entry), so training now divides by `age+1` to match the inference normalization (`offset − position`) exactly — otherwise the StandardScaler mean/std would have biased inference.
+- Honest modeling limitation (noted for interview): rollouts sample each token at a single fixed age, so the policy is trained on one lifetime slice; features are lifetime-normalized so the meaning generalizes, but this is a simplification the verdict accounts for.
+
 ## Verified on this host
 - All modules compile (`python3 -m py_compile`).
 - `scripts/baseline.py` exits 2 on this Intel Mac with the correct hardware/Python diagnosis.
@@ -74,10 +82,10 @@ borrowed hardware:
 
 ## Next action
 On an Apple Silicon Mac: `pip install -r requirements.txt`, `python scripts/get_data.py`,
-then `python scripts/baseline.py` (Phase 0), `python scripts/quantize.py` (Phase 1), and
-`python scripts/evict.py` (Phase 2). Note: Phase 2's H2O strategy prefills token-by-token,
-so `evict.py` is slow at 16k (many un-fused forward passes) — expect minutes; lower
-`eviction_context` in config.py for a faster smoke run. Paste the printed tables back; I fill
-README / RESUME_BULLETS / this file with the real numbers (baseline + OOM ceiling +
-FP16/INT8/INT4 deltas + eviction comparison), then proceed to Phase 3 (learned
-contextual-bandit eviction, benchmarked vs the heuristics).
+`python scripts/smoke.py` (now also covers Phase 3: rollout + train + learned cache/runner),
+then the phase scripts: `baseline.py` (0), `quantize.py` (1), `evict.py` (2), `learn.py` (3).
+Note: `evict.py` and `learn.py` use token-by-token prefill (H2O + learned), so they are slow
+at 16k — expect minutes; lower `eviction_context` / `rollout_context` in config.py for a quick
+pass. Paste the printed tables back; I fill README / RESUME_BULLETS / this file with the real
+numbers (baseline + OOM ceiling + FP16/INT8/INT4 deltas + eviction comparison + learned-vs-
+heuristic verdict), then proceed to Phase 4 (stress benchmark to 16k+ and the master table).

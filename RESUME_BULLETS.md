@@ -4,9 +4,9 @@ Interview-defensible bullets. Measured numbers only; nothing estimated. A bullet
 `TBD` until the number behind it has been measured on Apple Silicon.
 
 ## Status
-Phases 0–2 (baseline + telemetry, KV quantization, heuristic eviction) code complete and
-API-verified; awaiting a run on an Apple Silicon Mac to populate numbers. The build host is an
-Intel Mac, on which MLX cannot run, so no metric is measured yet.
+Phases 0–3 (baseline + telemetry, KV quantization, heuristic eviction, learned eviction) code
+complete and API-verified; awaiting a run on an Apple Silicon Mac to populate numbers. The
+build host is an Intel Mac, on which MLX cannot run, so no metric is measured yet.
 
 ## Draft bullets (numbers pending Apple Silicon run)
 - Built an on-device long-context LLM inference engine on Apple MLX that holds long
@@ -27,8 +27,12 @@ Intel Mac, on which MLX cannot run, so no metric is measured yet.
   recovers per-token attention mass the fused attention kernel hides — and benchmarked all
   three against the full cache at 16k context on memory, perplexity delta, needle accuracy,
   and decode throughput (deltas TBD pending the Apple Silicon run).
-- [Phase 3] Trained a contextual-bandit eviction policy and benchmarked it head-to-head
-  against StreamingLLM/H2O heuristics; verdict TBD with the supporting data.
+- Framed KV eviction as a contextual bandit (features: attention received, position, value
+  norm, layer; reward: future attention at fixed memory), collected rollouts from the model,
+  trained a linear reward model offline, and deployed it as a cheap per-step dot-product cache
+  policy benchmarked head-to-head against the H2O/StreamingLLM heuristics — with an explicit,
+  data-driven verdict on whether learning the importance function beats the heuristic (verdict
+  TBD pending the Apple Silicon run; an honest negative result is reported if it loses).
 
 ## Honesty note for the interview
 Numbers above are placeholders until measured. The harness aborts on non-Apple-Silicon

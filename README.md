@@ -89,7 +89,36 @@ run (this build host is an Intel Mac that cannot run MLX).
 
 ### Learned eviction (Phase 3)
 
-Not started — contextual-bandit policy benchmarked head-to-head against the Phase 2 heuristics.
+Each keep/evict decision is framed as a **contextual bandit**: context = per-token features
+available at decision time (average attention received, position as a fraction of context,
+value norm, layer); action = keep or evict; at a fixed budget the memory cost of "keep" is
+constant, so the reward of keeping a token is the quality it preserves — proxied by the
+attention it receives in the **future**. The pipeline runs the model to collect rollouts
+(reusing the H2O attention capture), labels each token with its future attention, trains a
+linear reward model offline (scikit-learn `Ridge` + `StandardScaler`), and deploys it as a
+cheap `mx` dot-product that scores eviction candidates.
+
+H2O is exactly the special case "score = raw past attention," so this is a clean test of
+whether *learning* the importance function beats the heuristic. Inference is deliberately
+linear (standardize → dot product, a few ops per eviction step) so the decode-time cost the
+verdict weighs stays small and measurable. `scripts/learn.py` collects rollouts, trains, saves
+the policy, runs the comparison, and prints an explicit verdict.
+
+| Strategy | KV mem (GB) | Peak mem (GB) | Perplexity | Needle acc. | Decode tok/s | TTFT (s) |
+|---|---|---|---|---|---|---|
+| full | TBD | TBD | TBD | TBD | TBD | TBD |
+| recency | TBD | TBD | TBD | TBD | TBD | TBD |
+| streaming | TBD | TBD | TBD | TBD | TBD | TBD |
+| heavy_hitter | TBD | TBD | TBD | TBD | TBD | TBD |
+| learned | TBD | TBD | TBD | TBD | TBD | TBD |
+
+**Verdict: TBD** — emitted by `learn.py` from the measured numbers (does the learned policy's
+quality gain, if any, justify its extra per-step scoring vs H2O?). Reported honestly either
+way; a learned policy that fails to beat H2O is a valid, documented outcome.
+
+Status as Phases 0–2: code complete, API-verified, compiles; rollout windowing + feature
+normalization validated against a brute-force reference in numpy; numbers TBD pending an Apple
+Silicon run (this build host is an Intel Mac that cannot run MLX).
 
 ## Architecture
 

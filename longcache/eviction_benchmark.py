@@ -68,27 +68,27 @@ class EvictionBenchmark:
         )
         return self._row(name, generation, perplexity, needle)
 
-    def _measure_heavy_hitter(self, context_length):
+    def _measure_token_stream(self, name, context_length, runner):
         tokenizer = self.runtime.tokenizer
         prompt_ids = self.holdout.prompt_array(tokenizer, context_length)
-        generation = self.h2o.generate(
+        generation = runner.generate(
             prompt_ids, self.config.decode_tokens, stop_on_eos=False
         )
 
         ppl_ids = self.holdout.token_ids(tokenizer)[:context_length]
-        perplexity = self.h2o.perplexity(ppl_ids)
+        perplexity = runner.perplexity(ppl_ids)
 
         haystack = self._haystack(context_length)
         correct = 0
         records = []
         for depth in self.config.needle_depths:
             prompt, secret = haystack.build(context_length, depth)
-            out = self.h2o.generate(prompt, self.config.needle_answer_tokens)
+            out = runner.generate(prompt, self.config.needle_answer_tokens)
             ok = NeedleHaystack.is_correct(out["text"], secret)
             correct += int(ok)
             records.append({"depth": depth, "secret": secret, "correct": ok})
         needle = {"accuracy": correct / len(self.config.needle_depths), "records": records}
-        return self._row("heavy_hitter", generation, perplexity, needle)
+        return self._row(name, generation, perplexity, needle)
 
     def _row(self, name, generation, perplexity, needle):
         return {
@@ -101,7 +101,7 @@ class EvictionBenchmark:
             "ttft_s": generation["ttft_s"],
         }
 
-    def run(self):
+    def run(self, learned_policy=None):
         if self.runner is None:
             self.setup()
         ctx = self.config.eviction_context
@@ -116,8 +116,19 @@ class EvictionBenchmark:
                 ctx,
                 lambda: self.runtime.rotating_cache(budget, self.config.streaming_sink),
             ),
-            self._measure_heavy_hitter(ctx),
+            self._measure_token_stream("heavy_hitter", ctx, self.h2o),
         ]
+        if learned_policy is not None:
+            from .learned_eviction import LearnedRunner
+
+            learned = LearnedRunner(
+                self.runtime,
+                learned_policy,
+                budget,
+                self.config.heavy_sink,
+                self.config.heavy_recent,
+            )
+            rows.append(self._measure_token_stream("learned", ctx, learned))
         return {
             "model_id": self.config.model_id,
             "context_length": ctx,
