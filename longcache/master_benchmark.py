@@ -31,10 +31,12 @@ class MasterBenchmark:
         self.h2o = None
         self.learned_runner = None
         self.policy = None
+        self.fit = None
 
     def setup(self):
         self.runtime.load()
         report = self.runtime.assert_fits()
+        self.fit = report
         self.holdout = HoldoutText(self.config.holdout_path)
         self.runner = GenerationRun(self.runtime)
         self.h2o = HeavyHitterRunner(
@@ -182,6 +184,9 @@ class MasterBenchmark:
             "model_id": self.config.model_id,
             "context_lengths": self.config.context_lengths,
             "budget": self.config.eviction_budget,
+            "budget_gb": self.fit.get("budget_gb") if self.fit else None,
+            "unified_memory_gb": self.fit.get("unified_memory_gb") if self.fit else None,
+            "weight_gb": self.fit.get("weight_gb") if self.fit else None,
             "policy": self.policy.summary() if self.policy else None,
             "rows": rows,
         }

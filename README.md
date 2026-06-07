@@ -2,6 +2,9 @@
 
 Holds long conversations on a fixed memory budget by compressing the LLM's key-value cache, on Apple Silicon with MLX. Includes a learned (contextual-bandit) eviction policy benchmarked head-to-head against the standard heuristics.
 
+New here? Read the [demo walkthrough](DEMO.md) for the guided tour, or jump to the
+[master comparative table](#master-comparative-table-phase-4) below.
+
 ## The problem
 
 On-device LLMs choke on long conversations because of the KV cache. Every token added to the context permanently adds to a key-value cache the model must hold in RAM, and that cache grows linearly with the conversation. On a device with fixed unified memory, a long chat slows generation and eventually crashes with an out-of-memory error — and offloading to the cloud destroys the privacy that is the entire reason to run on-device. The problem: hold the longest possible conversation, generating as fast as possible, on a fixed memory budget, while losing as little model quality as possible. The hard part is the tradeoff — evict old tokens and the model forgets (quality drops); keep everything and it crashes.
@@ -142,6 +145,22 @@ show up in real data. Shown below is the 16k block; `stress.py` emits the full 2
 Status as Phases 0–3: code complete, API-verified, compiles; aggregation/delta/OOM-handling
 logic validated in pure Python; numbers TBD pending the Apple Silicon run.
 
+### Charts (Phase 5)
+
+`scripts/charts.py` renders two figures from the Phase 4 results (`results-raw/phase4_master.json`)
+into `charts/` — no MLX needed, just matplotlib and the measured data:
+
+- **`memory_vs_context.png`** — peak unified memory vs context length per method, with the
+  measured memory budget drawn as the OOM ceiling. The FP16 baseline climbs toward the ceiling
+  (and stops at the context where it OOMs); the compressed methods stay bounded. The pitch in one
+  picture.
+- **`needle_vs_context.png`** — needle-in-a-haystack retrieval accuracy vs context length per
+  method, showing how much recall each compression technique preserves.
+
+The chart code refuses to invent data: with no Phase 4 results it exits and tells you to run the
+benchmark first. The charts are generated locally from a real run (the `charts/` directory is
+gitignored until populated with measured data).
+
 ## Architecture
 
 ```
@@ -176,6 +195,7 @@ python scripts/quantize.py    # Phase 1 quantization sweep
 python scripts/evict.py       # Phase 2 eviction comparison (H2O is slow at 16k)
 python scripts/learn.py       # Phase 3 learned policy vs heuristics
 python scripts/stress.py      # Phase 4 master comparative table (the big run; slow)
+python scripts/charts.py      # Phase 5 render charts from the Phase 4 data (no MLX needed)
 ```
 
 Run `smoke.py` first on a new machine. It loads the model once and drives baseline,

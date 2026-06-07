@@ -4,10 +4,10 @@ Interview-defensible bullets. Measured numbers only; nothing estimated. A bullet
 `TBD` until the number behind it has been measured on Apple Silicon.
 
 ## Status
-Phases 0–4 (baseline + telemetry, KV quantization, heuristic eviction, learned eviction,
-master stress benchmark) code complete and API-verified; awaiting a run on an Apple Silicon Mac
-to populate numbers. The build host is an Intel Mac, on which MLX cannot run, so no metric is
-measured yet.
+All six phases (baseline + telemetry, KV quantization, heuristic eviction, learned eviction,
+master stress benchmark, docs + charts) code complete and API-verified; awaiting a run on an
+Apple Silicon Mac to populate numbers and render charts. The build host is an Intel Mac, on
+which MLX cannot run, so no metric is measured yet.
 
 ## Draft bullets (numbers pending Apple Silicon run)
 - Built an on-device long-context LLM inference engine on Apple MLX that holds long
@@ -38,6 +38,9 @@ measured yet.
   vs learned) across context lengths on one shared model, with per-(context, method) isolation
   so a method that exhausts memory is recorded and the sweep continues — quantifying the
   memory/quality/throughput trade-off and the baseline's OOM ceiling on real hardware (TBD).
+- Visualized the result in two charts generated from the measured data: peak memory vs context
+  (baseline climbing to its OOM ceiling while the compressed engine stays bounded) and needle
+  retrieval accuracy vs context — the memory/quality trade-off in two pictures.
 
 ## Honesty note for the interview
 Numbers above are placeholders until measured. The harness aborts on non-Apple-Silicon

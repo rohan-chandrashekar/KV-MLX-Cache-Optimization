@@ -1,11 +1,11 @@
 # Progress
 
 ## Current status
-Phase 0 **code complete and verified-as-far-as-possible on this host**; **measurements TBD**.
+**Phases 0–5 code complete and verified-as-far-as-possible on this host**; **measurements TBD**.
 The build machine is an Intel Mac (Intel Core i5-1038NG7, Intel Iris Plus GPU, 16 GB,
 Python 3.9), on which MLX cannot run — MLX is Apple-Silicon-only and ships no Intel-Mac
-wheel or backend. All Phase 0 code is written against the verified current mlx-lm API and
-must be run on an Apple Silicon Mac (macOS 14+, Python 3.10+) to produce real numbers.
+wheel or backend. All code is written against the verified current mlx-lm API and must be run
+on an Apple Silicon Mac (macOS 14+, Python 3.10+) to produce real numbers and charts.
 
 ## Phase checklist
 - [~] Phase 0 — Baseline long-context loop + KV-memory and quality telemetry (code done; numbers TBD pending Apple Silicon)
@@ -13,7 +13,7 @@ must be run on an Apple Silicon Mac (macOS 14+, Python 3.10+) to produce real nu
 - [~] Phase 2 — Heuristic eviction (recency + attention-sink + heavy-hitter) (code done; numbers TBD pending Apple Silicon)
 - [~] Phase 3 — Learned (contextual-bandit) eviction, benchmarked vs heuristics (code done; numbers TBD pending Apple Silicon)
 - [~] Phase 4 — Stress benchmark to 16k+ and master comparative table (code done; numbers TBD pending Apple Silicon)
-- [ ] Phase 5 — Docs, resume bullets, memory-vs-context chart
+- [~] Phase 5 — Docs, resume bullets, memory-vs-context chart (code + docs done; charts render once Phase 4 data exists)
 
 ## What Phase 0 built
 - `longcache/preflight.py` — stdlib-only gate; refuses to run on non-Apple-Silicon / Python < 3.10 with the real reason.
@@ -59,6 +59,14 @@ must be run on an Apple Silicon Mac (macOS 14+, Python 3.10+) to produce real nu
 - Validated here in pure Python: the perplexity-delta-vs-fp16 computation and the table's None/OOM cell handling (OOM rows show `OOM/fail` for memory, `—` for missing metrics, no spurious delta).
 - Known cost: token-by-token methods (heavy_hitter, learned) dominate runtime at 16k; `stress.py` is the big run. Lower `context_lengths` / `needle_depths` in config.py for a faster pass.
 
+## What Phase 5 built
+- `longcache/charts.py` + `scripts/charts.py` — renders two figures from `results-raw/phase4_master.json` into `charts/`: memory-vs-context (baseline climbing to the measured OOM ceiling vs compressed methods staying bounded) and needle-accuracy-vs-context. Data extraction is matplotlib-free and was unit-tested here on synthetic results (baseline OOM at 16k correctly detected, compressed methods keep all points); plotting imports matplotlib lazily. Chart script needs no MLX — only matplotlib + the results file — and refuses to run without real Phase 4 data (no placeholder charts).
+- `master_benchmark.py` now records `budget_gb` / `unified_memory_gb` / `weight_gb` in the results so the chart can draw the OOM ceiling.
+- `DEMO.md` — guided walkthrough (problem, four levers, run commands, what to look at, the honest engineering notes an interviewer will probe).
+- README finalized: DEMO link, charts section + setup command, master-table anchor. RESUME_BULLETS finalized through Phase 4/5.
+- `.gitignore` — `charts/` ignored until populated with real measured data; the real PNGs are committed (or attached to the post) after the Apple Silicon run.
+- Honest status: Phase 5's "charts render from real benchmark data" criterion is met by the code, but the actual PNGs cannot exist until the Phase 4 run produces `phase4_master.json` on Apple Silicon. No fabricated charts are committed.
+
 ## Verified on this host
 - All modules compile (`python3 -m py_compile`).
 - `scripts/baseline.py` exits 2 on this Intel Mac with the correct hardware/Python diagnosis.
@@ -91,9 +99,11 @@ borrowed hardware:
 On an Apple Silicon Mac: `pip install -r requirements.txt`, `python scripts/get_data.py`,
 `python scripts/smoke.py` (now also covers Phase 3: rollout + train + learned cache/runner),
 then the phase scripts: `baseline.py` (0), `quantize.py` (1), `evict.py` (2), `learn.py` (3),
-`stress.py` (4, the master table — the big run). Note: token-by-token methods (H2O + learned)
-are slow at 16k — expect minutes per context; lower `context_lengths` / `eviction_context` /
-`rollout_context` / `needle_depths` in config.py for a quick pass. Paste the printed tables
-back; I fill README / RESUME_BULLETS / this file with the real numbers (baseline + OOM ceiling
-+ FP16/INT8/INT4 deltas + eviction comparison + learned-vs-heuristic verdict + master table),
-then proceed to Phase 5 (docs, resume bullets, memory-vs-context + needle-vs-context charts).
+`stress.py` (4, the master table — the big run), `charts.py` (5, renders the figures). Note:
+token-by-token methods (H2O + learned) are slow at 16k — expect minutes per context; lower
+`context_lengths` / `eviction_context` / `rollout_context` / `needle_depths` in config.py for a
+quick pass. Paste the printed tables back (and the two PNGs); I fill README / RESUME_BULLETS /
+this file with the real numbers (baseline + OOM ceiling + FP16/INT8/INT4 deltas + eviction
+comparison + learned-vs-heuristic verdict + master table) and commit the real charts. That
+closes out all six phases — the only thing standing between this repo and a finished,
+fully-measured portfolio project is one run on Apple Silicon.
