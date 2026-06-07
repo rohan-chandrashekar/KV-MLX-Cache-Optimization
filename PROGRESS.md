@@ -12,7 +12,7 @@ must be run on an Apple Silicon Mac (macOS 14+, Python 3.10+) to produce real nu
 - [~] Phase 1 — KV-cache quantization (INT8 / INT4) (code done; numbers TBD pending Apple Silicon)
 - [~] Phase 2 — Heuristic eviction (recency + attention-sink + heavy-hitter) (code done; numbers TBD pending Apple Silicon)
 - [~] Phase 3 — Learned (contextual-bandit) eviction, benchmarked vs heuristics (code done; numbers TBD pending Apple Silicon)
-- [ ] Phase 4 — Stress benchmark to 16k+ and master comparative table
+- [~] Phase 4 — Stress benchmark to 16k+ and master comparative table (code done; numbers TBD pending Apple Silicon)
 - [ ] Phase 5 — Docs, resume bullets, memory-vs-context chart
 
 ## What Phase 0 built
@@ -52,6 +52,13 @@ must be run on an Apple Silicon Mac (macOS 14+, Python 3.10+) to produce real nu
 - Validation done here (numpy, no MLX): rollout past/future windowing matches an independent brute-force reference; constant-attention sanity gives avg_attention == label == c. **Off-by-one fixed**: `past` spans `age+1` contributing queries (token attends to itself at entry), so training now divides by `age+1` to match the inference normalization (`offset − position`) exactly — otherwise the StandardScaler mean/std would have biased inference.
 - Honest modeling limitation (noted for interview): rollouts sample each token at a single fixed age, so the policy is trained on one lifetime slice; features are lifetime-normalized so the meaning generalizes, but this is a simplification the verdict accounts for.
 
+## What Phase 4 built
+- `longcache/master_benchmark.py` + `scripts/stress.py` — one master comparative table: all 7 methods (fp16 / int8 / int4 / recency / streaming / heavy_hitter / learned) at each context length, sharing a single loaded model and a single trained policy. Metrics: peak mem, KV mem, decode tok/s, TTFT, perplexity, perplexity Δ vs the fp16 baseline at that context, needle accuracy.
+- Each (context, method) measurement is isolated in try/except: an OOM/failure is recorded as `OOM/fail` and the sweep continues — so the baseline hitting its ceiling while compressed methods stay bounded shows up as real data, not a crash. Results are written to disk after every context, so a multi-hour run is never lost.
+- Reuses the validated low-level helpers (GenerationRun, cached_perplexity, run_needle_suite, HeavyHitterRunner, LearnedRunner) rather than re-implementing measurement.
+- Validated here in pure Python: the perplexity-delta-vs-fp16 computation and the table's None/OOM cell handling (OOM rows show `OOM/fail` for memory, `—` for missing metrics, no spurious delta).
+- Known cost: token-by-token methods (heavy_hitter, learned) dominate runtime at 16k; `stress.py` is the big run. Lower `context_lengths` / `needle_depths` in config.py for a faster pass.
+
 ## Verified on this host
 - All modules compile (`python3 -m py_compile`).
 - `scripts/baseline.py` exits 2 on this Intel Mac with the correct hardware/Python diagnosis.
@@ -83,9 +90,10 @@ borrowed hardware:
 ## Next action
 On an Apple Silicon Mac: `pip install -r requirements.txt`, `python scripts/get_data.py`,
 `python scripts/smoke.py` (now also covers Phase 3: rollout + train + learned cache/runner),
-then the phase scripts: `baseline.py` (0), `quantize.py` (1), `evict.py` (2), `learn.py` (3).
-Note: `evict.py` and `learn.py` use token-by-token prefill (H2O + learned), so they are slow
-at 16k — expect minutes; lower `eviction_context` / `rollout_context` in config.py for a quick
-pass. Paste the printed tables back; I fill README / RESUME_BULLETS / this file with the real
-numbers (baseline + OOM ceiling + FP16/INT8/INT4 deltas + eviction comparison + learned-vs-
-heuristic verdict), then proceed to Phase 4 (stress benchmark to 16k+ and the master table).
+then the phase scripts: `baseline.py` (0), `quantize.py` (1), `evict.py` (2), `learn.py` (3),
+`stress.py` (4, the master table — the big run). Note: token-by-token methods (H2O + learned)
+are slow at 16k — expect minutes per context; lower `context_lengths` / `eviction_context` /
+`rollout_context` / `needle_depths` in config.py for a quick pass. Paste the printed tables
+back; I fill README / RESUME_BULLETS / this file with the real numbers (baseline + OOM ceiling
++ FP16/INT8/INT4 deltas + eviction comparison + learned-vs-heuristic verdict + master table),
+then proceed to Phase 5 (docs, resume bullets, memory-vs-context + needle-vs-context charts).

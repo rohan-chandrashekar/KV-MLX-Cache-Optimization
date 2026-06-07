@@ -4,9 +4,10 @@ Interview-defensible bullets. Measured numbers only; nothing estimated. A bullet
 `TBD` until the number behind it has been measured on Apple Silicon.
 
 ## Status
-Phases 0–3 (baseline + telemetry, KV quantization, heuristic eviction, learned eviction) code
-complete and API-verified; awaiting a run on an Apple Silicon Mac to populate numbers. The
-build host is an Intel Mac, on which MLX cannot run, so no metric is measured yet.
+Phases 0–4 (baseline + telemetry, KV quantization, heuristic eviction, learned eviction,
+master stress benchmark) code complete and API-verified; awaiting a run on an Apple Silicon Mac
+to populate numbers. The build host is an Intel Mac, on which MLX cannot run, so no metric is
+measured yet.
 
 ## Draft bullets (numbers pending Apple Silicon run)
 - Built an on-device long-context LLM inference engine on Apple MLX that holds long
@@ -33,6 +34,10 @@ build host is an Intel Mac, on which MLX cannot run, so no metric is measured ye
   policy benchmarked head-to-head against the H2O/StreamingLLM heuristics — with an explicit,
   data-driven verdict on whether learning the importance function beats the heuristic (verdict
   TBD pending the Apple Silicon run; an honest negative result is reported if it loses).
+- Produced a single master comparative table (baseline vs INT8/INT4 vs recency/StreamingLLM/H2O
+  vs learned) across context lengths on one shared model, with per-(context, method) isolation
+  so a method that exhausts memory is recorded and the sweep continues — quantifying the
+  memory/quality/throughput trade-off and the baseline's OOM ceiling on real hardware (TBD).
 
 ## Honesty note for the interview
 Numbers above are placeholders until measured. The harness aborts on non-Apple-Silicon

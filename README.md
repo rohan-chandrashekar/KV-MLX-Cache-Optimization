@@ -120,6 +120,28 @@ Status as Phases 0–2: code complete, API-verified, compiles; rollout windowing
 normalization validated against a brute-force reference in numpy; numbers TBD pending an Apple
 Silicon run (this build host is an Intel Mac that cannot run MLX).
 
+### Master comparative table (Phase 4)
+
+The headline result: every method at each context length, one table. `scripts/stress.py` shares
+a single loaded model, trains the learned policy once, and measures all seven methods across the
+context sweep, writing results to disk after each context. Each (context, method) measurement is
+isolated — a method that runs out of memory at a given context is recorded as `OOM/fail` and the
+sweep continues, so the full baseline's ceiling and the compressed methods' bounded memory both
+show up in real data. Shown below is the 16k block; `stress.py` emits the full 2k/4k/8k/16k sweep.
+
+| Context | Method | Peak mem (GB) | KV mem (GB) | Tokens/sec | TTFT (s) | Perplexity | PPL Δ | Needle acc. |
+|---|---|---|---|---|---|---|---|---|
+| 16k | fp16 | TBD | TBD | TBD | TBD | TBD | 0.00 (ref) | TBD |
+| 16k | int8 | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
+| 16k | int4 | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
+| 16k | recency | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
+| 16k | streaming | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
+| 16k | heavy_hitter | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
+| 16k | learned | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
+
+Status as Phases 0–3: code complete, API-verified, compiles; aggregation/delta/OOM-handling
+logic validated in pure Python; numbers TBD pending the Apple Silicon run.
+
 ## Architecture
 
 ```
@@ -152,6 +174,8 @@ python scripts/smoke.py       # ~30s: exercises every code path, fails fast if a
 python scripts/baseline.py    # Phase 0 baseline sweep + telemetry
 python scripts/quantize.py    # Phase 1 quantization sweep
 python scripts/evict.py       # Phase 2 eviction comparison (H2O is slow at 16k)
+python scripts/learn.py       # Phase 3 learned policy vs heuristics
+python scripts/stress.py      # Phase 4 master comparative table (the big run; slow)
 ```
 
 Run `smoke.py` first on a new machine. It loads the model once and drives baseline,
