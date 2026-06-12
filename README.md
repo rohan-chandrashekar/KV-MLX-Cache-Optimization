@@ -198,6 +198,9 @@ python scripts/stress.py      # Phase 4 master comparative table (the big run; s
 python scripts/charts.py      # Phase 5 render charts from the Phase 4 data (no MLX needed)
 ```
 
+On a fresh Apple Silicon Mac, [RUN_ON_MAC.md](RUN_ON_MAC.md) is a copy-paste prompt that detects
+the exact M-series chip, runs the whole pipeline, and records every number tagged to that machine.
+
 Run `smoke.py` first on a new machine. It loads the model once and drives baseline,
 INT8/INT4 quantization, all three eviction strategies, both perplexity paths, the needle
 harness, and the H2O cache mechanics with tiny inputs — asserting finite, ordered results —
