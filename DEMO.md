@@ -61,8 +61,13 @@ with tiny inputs — so an integration issue surfaces in seconds, not 20 minutes
   engine stays bounded. This is the whole pitch in one picture.
 - **needle_vs_context.png** — how much retrieval accuracy each compression method keeps as
   context grows.
+- **memory_quality_tradeoff.png** — the memory/quality frontier; the best methods sit bottom-right.
 - **The verdict** (`scripts/learn.py`) — does the learned policy actually beat H2O? Reported from
   the data either way; a learned policy that loses is a documented, valid result.
+
+For sharing: `scripts/linkedin.py` renders the three charts and writes a `LINKEDIN-<machine>.md`
+post draft with the headline numbers computed from the run (no screenshots needed — the charts are
+publication-ready PNGs).
 
 ## The honest engineering notes (the part an interviewer will probe)
 

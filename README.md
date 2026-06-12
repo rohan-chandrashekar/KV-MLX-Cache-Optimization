@@ -156,10 +156,14 @@ into `charts/` — no MLX needed, just matplotlib and the measured data:
   picture.
 - **`needle_vs_context.png`** — needle-in-a-haystack retrieval accuracy vs context length per
   method, showing how much recall each compression technique preserves.
+- **`memory_quality_tradeoff.png`** — KV memory vs perplexity at the reference context, each method
+  a point; the best methods sit bottom-right (low memory, low perplexity loss).
 
-The chart code refuses to invent data: with no Phase 4 results it exits and tells you to run the
-benchmark first. The charts are generated locally from a real run (the `charts/` directory is
-gitignored until populated with measured data).
+`scripts/linkedin.py` renders all three and writes a `LINKEDIN-<machine>.md` post draft whose
+headline numbers (best compression ratio, perplexity delta, OOM ceiling, learned-vs-H2O verdict)
+are computed from the real data — never hand-typed. The chart code refuses to invent data: with no
+Phase 4 results it exits and tells you to run the benchmark first. Charts are generated locally
+from a real run (`charts/` is gitignored until populated with measured data).
 
 ## Architecture
 
@@ -196,6 +200,7 @@ python scripts/evict.py       # Phase 2 eviction comparison (H2O is slow at 16k)
 python scripts/learn.py       # Phase 3 learned policy vs heuristics
 python scripts/stress.py      # Phase 4 master comparative table (the big run; slow)
 python scripts/charts.py      # Phase 5 render charts from the Phase 4 data (no MLX needed)
+python scripts/linkedin.py    # Phase 5 charts + a post draft with the headline numbers
 ```
 
 On a fresh Apple Silicon Mac, [RUN_ON_MAC.md](RUN_ON_MAC.md) is a copy-paste prompt that detects

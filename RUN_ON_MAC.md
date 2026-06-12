@@ -56,6 +56,7 @@ STEP 4 — Run the phases and capture every table (only after smoke passes):
   python scripts/learn.py      2>&1 | tee /tmp/lc_p3.txt    # learned policy vs heuristics + verdict
   python scripts/stress.py     2>&1 | tee /tmp/lc_p4.txt    # master comparative table (the big run)
   python scripts/charts.py                                  # renders charts/*.png from Phase 4 data
+  python scripts/linkedin.py "$SLUG"                        # 3 charts + a ready-to-paste post draft
 Expectations and honest handling:
   - evict.py / learn.py / stress.py prefill token-by-token for H2O and the learned policy, so they
     are SLOW at 16k (minutes per context). High TTFT for those methods is expected and is itself a
@@ -75,8 +76,16 @@ STEP 5 — Record the numbers, tagged to THIS machine. Create RESULTS-$SLUG.md c
   - One section per phase with the printed markdown table copied VERBATIM (Phase 0 baseline +
     OOM ceiling; Phase 1 quantization; Phase 2 eviction; Phase 3 learned table + the verdict line;
     Phase 4 master comparative table).
-  - The two chart paths (charts/memory_vs_context.png, charts/needle_vs_context.png).
+  - The three chart paths (charts/memory_vs_context.png, charts/needle_vs_context.png,
+    charts/memory_quality_tradeoff.png) and the LinkedIn draft path (LINKEDIN-$SLUG.md).
   - Any config changes you made and any failures/OOMs, stated plainly.
+
+STEP 5b — LinkedIn material. scripts/linkedin.py already wrote LINKEDIN-$SLUG.md with a
+ready-to-paste post whose numbers are computed from the real Phase 4 data (not typed by hand) and
+rendered the three charts. No terminal screenshots are needed — the charts are publication-ready
+PNGs; attach them directly. The only thing worth screenshotting is the comparative table as it
+renders on the GitHub README (cleaner than terminal text), and only once the README TBDs are
+filled with this run's numbers. Paste the draft back to the human for review before posting.
 
 STEP 6 — (Optional) commit, only if this Mac has git push access:
   git add RESULTS-$SLUG.md && git commit -m "Measured results on $SLUG"
@@ -88,8 +97,8 @@ If you want the charts in the repo, git add them explicitly (they are small) and
 STEP 7 — Report back a short summary: the machine ($SLUG and full chip name), whether smoke
 passed, which phases completed, and the headline numbers — baseline sustained tok/s and the OOM
 ceiling, INT4 KV-memory cut and its perplexity delta, the best eviction strategy at 16k, and the
-learned-vs-H2O verdict — plus the path to RESULTS-$SLUG.md and the two PNGs. Keep it factual; cite
-only what the scripts actually printed.
+learned-vs-H2O verdict — plus the path to RESULTS-$SLUG.md, the three PNGs, and LINKEDIN-$SLUG.md.
+Keep it factual; cite only what the scripts actually printed.
 ```
 
 ---
@@ -101,10 +110,15 @@ only what the scripts actually printed.
   record and can compare an M1 against an M3 Max directly.
 - **`smoke.py` is the safety net.** If it passes, the long benchmarks will run; if it fails, the
   agent stops and shows you the exact broken check in seconds.
-- **Send the numbers back here.** Paste the contents of any `RESULTS-<slug>.md` (and the two PNGs)
+- **Send the numbers back here.** Paste the contents of any `RESULTS-<slug>.md` (and the PNGs)
   into the original Claude project chat and I'll fill the `TBD`s in README / RESUME_BULLETS /
   PROGRESS with the real measured values — choosing one machine as the canonical README result and
   keeping the rest as a cross-device comparison.
+- **LinkedIn: no screenshots needed.** `scripts/linkedin.py` produces three publication-ready PNG
+  charts and a `LINKEDIN-<slug>.md` post draft with the headline numbers already computed from the
+  run. Attach the charts (the memory-vs-context one is the hero), paste the draft, edit the voice
+  to taste. The one optional screenshot: the comparative table rendered on the GitHub README, once
+  it's filled with real numbers — that looks cleaner than a terminal grab.
 - **Low-RAM Macs are still useful.** An 8 GB machine that OOMs the FP16 baseline early but runs the
   compressed methods is exactly the story the project is about — that contrast is a feature, not a
   failed run.
